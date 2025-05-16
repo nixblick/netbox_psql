@@ -1,0 +1,24 @@
+# roles/netbox/tasks/systemd.yml v1.0
+---
+- name: Configure NetBox systemd services
+  template:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: root
+    group: root
+    mode: '0644'
+  with_items:
+    - { src: 'netbox.service.j2', dest: '/etc/systemd/system/netbox.service' }
+    - { src: 'netbox-rq.service.j2', dest: '/etc/systemd/system/netbox-rq.service' }
+  notify:
+    - reload systemd
+    - restart netbox services
+
+- name: Enable and start NetBox services
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: yes
+  with_items:
+    - netbox
+    - netbox-rq

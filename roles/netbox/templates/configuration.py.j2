@@ -1,0 +1,91 @@
+# roles/netbox/templates/configuration.py.j2 v1.0
+# {{ ansible_managed }}
+import os
+import sys
+
+# NetBox settings
+ALLOWED_HOSTS = {{ netbox_allowed_hosts | to_json }}
+BASE_PATH = '{{ netbox_base_path }}'
+DEBUG = {{ netbox_debug | bool | lower }}
+SECRET_KEY = '{{ netbox_secret_key }}'
+
+# Database settings
+DATABASE = {
+    'NAME': '{{ netbox_db_name }}',
+    'USER': '{{ netbox_db_user }}',
+    'PASSWORD': '{{ netbox_db_password }}',
+    'HOST': 'localhost',
+    'PORT': '',
+    'CONN_MAX_AGE': 300,
+}
+
+# Redis settings
+REDIS = {
+    'tasks': {
+        'HOST': '{{ netbox_redis_host }}',
+        'PORT': {{ netbox_redis_port }},
+        'PASSWORD': '{{ netbox_redis_password }}',
+        'DATABASE': 0,
+        'SSL': False,
+    },
+    'caching': {
+        'HOST': '{{ netbox_redis_host }}',
+        'PORT': {{ netbox_redis_port }},
+        'PASSWORD': '{{ netbox_redis_password }}',
+        'DATABASE': 1,
+        'SSL': False,
+    }
+}
+
+# This key is used for secure generation of random numbers and strings. It must never be exposed outside of this file.
+# For optimal security, SECRET_KEY should be at least 50 characters in length and contain a mix of letters, numbers, and
+# symbols. NetBox will not run without this defined. For more information, see
+# https://docs.djangoproject.com/en/dev/ref/settings/#std:setting-SECRET_KEY
+SECRET_KEY = '{{ netbox_secret_key }}'
+
+{% if netbox_admins %}
+# Email settings
+EMAIL = {
+    'SERVER': 'localhost',
+    'PORT': 25,
+    'USERNAME': '',
+    'PASSWORD': '',
+    'USE_SSL': False,
+    'USE_TLS': False,
+    'TIMEOUT': 10,
+    'FROM_EMAIL': '',
+}
+
+ADMINS = [
+{% for admin in netbox_admins %}
+    ['{{ admin.name }}', '{{ admin.email }}'],
+{% endfor %}
+]
+{% endif %}
+
+{% if netbox_use_ldap %}
+# LDAP authentication (optional)
+AUTHENTICATION_BACKENDS = [
+    'django_auth_ldap.backend.LDAPBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
+import ldap
+from django_auth_ldap.config import LDAPSearch
+
+# Baseline configuration
+AUTH_LDAP_SERVER_URI = 'ldap://{{ netbox_ldap_server }}'
+AUTH_LDAP_BIND_DN = '{{ netbox_ldap_bind_dn }}'
+AUTH_LDAP_BIND_PASSWORD = '{{ netbox_ldap_bind_password }}'
+
+import django_auth_ldap.config
+import logging
+import ldap
+
+ldap.set_option(ldap.OPT_X_TLS_REQUIRE_CERT, ldap.OPT_X_TLS_NEVER)
+logger = logging.getLogger('django_auth_ldap')
+logger.addHandler(logging.StreamHandler())
+logger.setLevel(logging.DEBUG)
+
+from importlib import import_module
+import_module('ldap_config')
+{% endif %}

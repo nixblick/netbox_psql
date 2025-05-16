@@ -1,0 +1,34 @@
+# roles/netbox/tasks/dependencies.yml v1.1
+---
+- name: Install dependencies
+  ansible.builtin.dnf:
+    name:
+      - python39
+      - python39-devel
+      - python39-pip
+      - git
+      - gcc
+      - libxml2-devel
+      - libxslt-devel
+      - libffi-devel
+      - openssl-devel
+      - redhat-rpm-config
+      - postgresql-server
+      - postgresql-devel
+      - nginx
+      - redis
+    state: present
+
+- name: Create system group
+  ansible.builtin.group:
+    name: "{{ netbox_group }}"
+    state: present
+
+- name: Create system user
+  ansible.builtin.user:
+    name: "{{ netbox_user }}"
+    group: "{{ netbox_group }}"
+    home: "{{ netbox_home }}"
+    shell: /bin/bash
+    system: true
+    createhome: false

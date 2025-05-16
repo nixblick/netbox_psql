@@ -1,0 +1,28 @@
+# .gitignore v1.1
+# Ansible spezifisch
+*.retry
+*.pyc
+__pycache__/
+.cache/
+
+# Vertrauliche Daten
+vault_password_file
+*.vault
+*vault.yml
+*secrets.yml
+*password*.yml
+*credentials*.yml
+
+# Laufzeit-Daten
+.ansible/
+ansible.log
+
+# Editor Files
+.vscode/
+.idea/
+*.swp
+*~
+
+# Betriebssystem-Dateien
+.DS_Store
+Thumbs.db

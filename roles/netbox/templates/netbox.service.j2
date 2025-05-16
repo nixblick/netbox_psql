@@ -1,0 +1,17 @@
+# roles/netbox/templates/netbox.service.j2 v1.0
+# {{ ansible_managed }}
+[Unit]
+Description=NetBox WSGI Service
+Documentation=https://docs.netbox.dev/
+After=network-online.target
+Wants=network-online.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User={{ netbox_user }}
+Group={{ netbox_group }}
+WorkingDirectory={{ netbox_dir }}/netbox
+ExecStart={{ netbox_venv }}/bin/gunicorn --bind 127.0.0.1:8001 --workers 5 --timeout 120 netbox.wsgi
+
+[Install]
+WantedBy=multi-user.target

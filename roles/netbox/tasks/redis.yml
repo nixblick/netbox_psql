@@ -1,0 +1,7 @@
+# roles/netbox/tasks/redis.yml v1.0
+---
+- name: Start and enable Redis
+  systemd:
+    name: redis
+    state: started
+    enabled: yes

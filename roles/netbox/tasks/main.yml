@@ -1,0 +1,19 @@
+# roles/netbox/tasks/main.yml v1.1
+---
+- name: Install dependencies
+  ansible.builtin.import_tasks: dependencies.yml
+
+- name: Configure database
+  ansible.builtin.import_tasks: database.yml
+
+- name: Configure Redis
+  ansible.builtin.import_tasks: redis.yml
+
+- name: Install NetBox
+  ansible.builtin.import_tasks: netbox.yml
+
+- name: Configure Nginx
+  ansible.builtin.import_tasks: nginx.yml
+
+- name: Configure systemd services
+  ansible.builtin.import_tasks: systemd.yml

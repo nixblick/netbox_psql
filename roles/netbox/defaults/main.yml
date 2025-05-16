@@ -1,0 +1,39 @@
+# roles/netbox/defaults/main.yml v1.1
+---
+# NetBox Konfigurationsoptionen - Default-Werte
+netbox_version: master
+netbox_dir: /opt/netbox
+netbox_user: netbox
+netbox_group: netbox
+netbox_home: "{{ netbox_dir }}"
+netbox_venv: "{{ netbox_dir }}/venv"
+netbox_socket: "{{ netbox_dir }}/netbox.sock"
+
+# DB-Konfiguration
+netbox_db_name: netbox
+netbox_db_user: netbox
+netbox_db_password: "changeme"
+
+# Redis
+netbox_redis_host: localhost
+netbox_redis_port: 6379
+netbox_redis_password: ""
+
+# Webserver
+netbox_domain: netbox.example.com
+netbox_port: 80
+netbox_ssl_port: 443
+netbox_use_ssl: false
+
+# NetBox Konfigurationsoptionen
+netbox_allowed_hosts: ["{{ netbox_domain }}", "localhost"]
+netbox_admins: []
+netbox_base_path: ""
+netbox_debug: false
+netbox_secret_key: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=50') }}"
+
+# LDAP (optional)
+netbox_use_ldap: false
+netbox_ldap_server: "ldap.example.com"
+netbox_ldap_bind_dn: "cn=netbox,ou=service-accounts,dc=example,dc=com"
+netbox_ldap_bind_password: ""

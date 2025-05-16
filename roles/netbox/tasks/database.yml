@@ -1,0 +1,46 @@
+# roles/netbox/tasks/database.yml v1.0
+---
+- name: Check if PostgreSQL is initialized
+  stat:
+    path: /var/lib/pgsql/data/postgresql.conf
+  register: postgresql_config
+
+- name: Initialize PostgreSQL
+  command: postgresql-setup --initdb
+  when: not postgresql_config.stat.exists
+
+- name: Start and enable PostgreSQL
+  systemd:
+    name: postgresql
+    state: started
+    enabled: yes
+
+- name: Create PostgreSQL user
+  become: yes
+  become_user: postgres
+  command: >
+    psql -c "CREATE ROLE {{ netbox_db_user }} WITH LOGIN ENCRYPTED PASSWORD '{{ netbox_db_password }}';"
+  register: create_user_result
+  failed_when: 
+    - create_user_result.rc != 0
+    - "'already exists' not in create_user_result.stderr"
+  changed_when: "'already exists' not in create_user_result.stderr"
+
+- name: Create PostgreSQL database
+  become: yes
+  become_user: postgres
+  command: >
+    psql -c "CREATE DATABASE {{ netbox_db_name }} WITH OWNER {{ netbox_db_user }};"
+  register: create_db_result
+  failed_when: 
+    - create_db_result.rc != 0
+    - "'already exists' not in create_db_result.stderr"
+  changed_when: "'already exists' not in create_db_result.stderr"
+
+- name: Configure PostgreSQL for local connections
+  lineinfile:
+    path: /var/lib/pgsql/data/pg_hba.conf
+    regexp: '^host\s+{{ netbox_db_name }}\s+{{ netbox_db_user }}\s+127.0.0.1/32'
+    line: "host    {{ netbox_db_name }}    {{ netbox_db_user }}    127.0.0.1/32    md5"
+    state: present
+  notify: restart postgresql

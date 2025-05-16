@@ -1,0 +1,7 @@
+# playbook.yml v1.0
+---
+- name: Install and Configure NetBox
+  hosts: netbox_servers
+  become: true
+  roles:
+    - netbox
