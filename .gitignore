@@ -7,7 +7,7 @@ __pycache__/
 
 # Vertrauliche Daten
 vault_password_file
-*.vault
+*.vault*
 *vault.yml
 *secrets.yml
 *password*.yml
@@ -25,4 +25,4 @@ ansible.log
 
 # Betriebssystem-Dateien
 .DS_Store
-Thumbs.db
+Thumbs.db.vault_pass

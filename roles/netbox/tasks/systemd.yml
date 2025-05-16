@@ -1,7 +1,7 @@
-# roles/netbox/tasks/systemd.yml v1.0
+# roles/netbox/tasks/systemd.yml v1.1
 ---
 - name: Configure NetBox systemd services
-  template:
+  ansible.builtin.template:
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
     owner: root
@@ -11,14 +11,14 @@
     - { src: 'netbox.service.j2', dest: '/etc/systemd/system/netbox.service' }
     - { src: 'netbox-rq.service.j2', dest: '/etc/systemd/system/netbox-rq.service' }
   notify:
-    - reload systemd
-    - restart netbox services
+    - Reload systemd
+    - Restart NetBox services
 
 - name: Enable and start NetBox services
-  systemd:
+  ansible.builtin.systemd:
     name: "{{ item }}"
     state: started
-    enabled: yes
+    enabled: true
   with_items:
     - netbox
     - netbox-rq

@@ -1,4 +1,4 @@
-# group_vars/all.yml v1.0
+# group_vars/all.yml v1.2
 ---
 # NetBox Konfiguration
 netbox_version: master
@@ -12,7 +12,8 @@ netbox_socket: "{{ netbox_dir }}/netbox.sock"
 # DB-Konfiguration
 netbox_db_name: netbox
 netbox_db_user: netbox
-netbox_db_password: "changeme" # Ändere dies! Besser: Verwende ansible-vault
+# Das Passwort kommt aus dem Vault
+# netbox_db_password definiert in vault.yml
 
 # Redis
 netbox_redis_host: localhost
@@ -30,10 +31,15 @@ netbox_allowed_hosts: ["{{ netbox_domain }}", "localhost"]
 netbox_admins: []
 netbox_base_path: ""
 netbox_debug: false
-netbox_secret_key: "{{ lookup('password', '/dev/null chars=ascii_letters,digits length=50') }}"
+# Secret key kommt aus dem Vault
+# netbox_secret_key definiert in vault.yml
 
 # LDAP (optional)
 netbox_use_ldap: false
 netbox_ldap_server: "ldap.example.com"
 netbox_ldap_bind_dn: "cn=netbox,ou=service-accounts,dc=example,dc=com"
-netbox_ldap_bind_password: "" # Verwende ansible-vault
+# LDAP Passwort aus Vault
+# netbox_ldap_bind_password definiert in vault.yml
+# Import Secrets
+- include_vars: all/vault.yml
+
