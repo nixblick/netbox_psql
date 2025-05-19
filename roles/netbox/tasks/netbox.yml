@@ -1,27 +1,146 @@
-# roles/netbox/tasks/netbox.yml v1.1
+# roles/netbox/tasks/netbox.yml v4.5
 ---
-- name: Clone NetBox repository
-  ansible.builtin.git:
-    repo: https://github.com/netbox-community/netbox.git
-    dest: "{{ netbox_dir }}"
-    version: "{{ netbox_version }}"
+# Python 3.12 in Rocky Linux 9.5 installieren
+- name: Enable required repositories
+  ansible.builtin.shell: |
+    dnf install -y dnf-plugins-core
+    dnf config-manager --set-enabled crb
+    dnf install -y epel-release
+    dnf update -y
+  changed_when: true
 
+- name: Install Python 3.12
+  ansible.builtin.dnf:
+    name:
+      - python3.12
+      - python3.12-devel
+      - python3.12-pip
+    state: present
+
+# Konfigurieren und starten der PostgreSQL-Datenbank
+- name: Check if PostgreSQL is initialized
+  ansible.builtin.stat:
+    path: /var/lib/pgsql/data/postgresql.conf
+  register: postgresql_config
+
+- name: Initialize PostgreSQL if not already initialized
+  ansible.builtin.command: postgresql-setup --initdb
+  when: not postgresql_config.stat.exists
+  changed_when: true
+
+- name: Start and enable PostgreSQL
+  ansible.builtin.systemd:
+    name: postgresql
+    state: started
+    enabled: true
+
+# Verbesserte PostgreSQL-Konfiguration
+- name: Configure PostgreSQL pg_hba.conf for MD5 authentication
+  ansible.builtin.lineinfile:
+    path: /var/lib/pgsql/data/pg_hba.conf
+    regexp: '^(local\s+all\s+all\s+)peer'
+    line: 'local   all             all                                     md5'
+    state: present
+  notify: restart postgresql
+
+- name: Configure PostgreSQL pg_hba.conf for IPv4 connections
+  ansible.builtin.lineinfile:
+    path: /var/lib/pgsql/data/pg_hba.conf
+    regexp: '^(host\s+all\s+all\s+127.0.0.1/32\s+)ident'
+    line: 'host    all             all             127.0.0.1/32            md5'
+    state: present
+  notify: restart postgresql
+
+- name: Create PostgreSQL user
+  become: true
+  become_user: postgres
+  ansible.builtin.shell: |
+    psql -c "CREATE ROLE {{ netbox_db_user }} WITH LOGIN ENCRYPTED PASSWORD '{{ netbox_db_password }}';" || \
+    psql -c "ALTER USER {{ netbox_db_user }} WITH PASSWORD '{{ netbox_db_password }}';"
+  changed_when: true
+
+- name: Create PostgreSQL database
+  become: true
+  become_user: postgres
+  ansible.builtin.shell: |
+    psql -c "CREATE DATABASE {{ netbox_db_name }} WITH OWNER {{ netbox_db_user }};" || true
+  changed_when: true
+
+- name: Ensure PostgreSQL is restarted for authentication changes
+  ansible.builtin.systemd:
+    name: postgresql
+    state: restarted
+
+- name: Create temporary directory for NetBox installation
+  ansible.builtin.file:
+    path: /var/local/tmpdir
+    state: directory
+    mode: '0755'
+
+- name: Download NetBox
+  ansible.builtin.get_url:
+    url: "https://github.com/netbox-community/netbox/archive/refs/tags/v4.3.0.tar.gz"
+    dest: "/var/local/tmpdir/v4.3.0.tar.gz"
+  environment:
+    http_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
+    https_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
+
+- name: Extract NetBox archive
+  ansible.builtin.unarchive:
+    src: "/var/local/tmpdir/v4.3.0.tar.gz"
+    dest: "/var/local/tmpdir/"
+    remote_src: true
+
+- name: Copy NetBox files to destination
+  ansible.builtin.shell: cp -r /var/local/tmpdir/netbox-4.3.0/* {{ netbox_dir }}/
+
+- name: Clean up temporary files
+  ansible.builtin.file:
+    path: "/var/local/tmpdir/{{ item }}"
+    state: absent
+  with_items:
+    - "v4.3.0.tar.gz"
+    - "netbox-4.3.0"
+
+# Python 3.12 für virtualenv verwenden
 - name: Create Python virtual environment
   ansible.builtin.pip:
     name: virtualenv
-    executable: pip3
+    executable: pip3.12
+  environment:
+    http_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
+    https_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
 
 - name: Set up Python virtual environment
-  ansible.builtin.command: python3 -m venv {{ netbox_venv }}
+  ansible.builtin.command: python3.12 -m venv {{ netbox_venv }}
   args:
     creates: "{{ netbox_venv }}/bin/activate"
   changed_when: true
 
-- name: Install NetBox requirements
-  ansible.builtin.pip:
-    requirements: "{{ netbox_dir }}/requirements.txt"
-    virtualenv: "{{ netbox_venv }}"
-    virtualenv_command: python3 -m venv
+- name: Upgrade Pip
+  ansible.builtin.command: "{{ netbox_venv }}/bin/pip install --upgrade pip --trusted-host pypi.org --trusted-host files.pythonhosted.org"
+  environment:
+    http_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
+    https_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
+
+- name: Install wheel and setuptools
+  ansible.builtin.command: "{{ netbox_venv }}/bin/pip install wheel setuptools --trusted-host pypi.org --trusted-host files.pythonhosted.org"
+  environment:
+    http_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
+    https_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
+
+- name: Install psycopg2
+  ansible.builtin.command: "{{ netbox_venv }}/bin/pip install psycopg2-binary --trusted-host pypi.org --trusted-host files.pythonhosted.org"
+  environment:
+    http_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
+    https_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
+
+- name: Install NetBox requirements (with SSL verification disabled)
+  ansible.builtin.command: "{{ netbox_venv }}/bin/pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org -r {{ netbox_dir }}/requirements.txt"
+  environment:
+    http_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
+    https_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
+    PIP_PROXY: "{{ lookup('env', 'http_proxy') | default('') }}"
 
 - name: Set proper ownership of NetBox directory
   ansible.builtin.file:
@@ -39,27 +158,33 @@
     group: "{{ netbox_group }}"
     mode: '0644'
 
-- name: Add LDAP configuration if enabled
-  ansible.builtin.template:
-    src: ldap_config.py.j2
-    dest: "{{ netbox_dir }}/netbox/netbox/ldap_config.py"
-    owner: "{{ netbox_user }}"
-    group: "{{ netbox_group }}"
-    mode: '0644'
-  when: netbox_use_ldap
+- name: Test PostgreSQL connection with psql
+  become: true
+  become_user: "{{ netbox_user }}"
+  ansible.builtin.shell: |
+    PGPASSWORD='{{ netbox_db_password }}' psql -h localhost -U {{ netbox_db_user }} -d {{ netbox_db_name }} -c "SELECT 1"
+  register: psql_test
+  changed_when: false
+  failed_when: false
+
+- name: Debug PostgreSQL connection result
+  ansible.builtin.debug:
+    var: psql_test
 
 - name: Run NetBox migrations
-  ansible.builtin.become: true
-  ansible.builtin.become_user: "{{ netbox_user }}"
-  ansible.builtin.command: "{{ netbox_venv }}/bin/python3 {{ netbox_dir }}/netbox/manage.py migrate"
+  become: true
+  become_user: "{{ netbox_user }}"
+  ansible.builtin.command: "{{ netbox_venv }}/bin/python {{ netbox_dir }}/netbox/manage.py migrate"
   args:
     chdir: "{{ netbox_dir }}/netbox"
   changed_when: true
+  environment:
+    PYTHONPATH: "{{ netbox_dir }}/netbox"
 
 - name: Create NetBox superuser
-  ansible.builtin.become: true
-  ansible.builtin.become_user: "{{ netbox_user }}"
-  ansible.builtin.command: "{{ netbox_venv }}/bin/python3 {{ netbox_dir }}/netbox/manage.py createsuperuser --noinput"
+  become: true
+  become_user: "{{ netbox_user }}"
+  ansible.builtin.command: "{{ netbox_venv }}/bin/python {{ netbox_dir }}/netbox/manage.py createsuperuser --noinput"
   environment:
     DJANGO_SUPERUSER_PASSWORD: "admin"
     DJANGO_SUPERUSER_USERNAME: "admin"
@@ -72,9 +197,9 @@
   changed_when: create_admin.rc == 0
 
 - name: Collect static files
-  ansible.builtin.become: true
-  ansible.builtin.become_user: "{{ netbox_user }}"
-  ansible.builtin.command: "{{ netbox_venv }}/bin/python3 {{ netbox_dir }}/netbox/manage.py collectstatic --no-input"
+  become: true
+  become_user: "{{ netbox_user }}"
+  ansible.builtin.command: "{{ netbox_venv }}/bin/python {{ netbox_dir }}/netbox/manage.py collectstatic --no-input"
   args:
     chdir: "{{ netbox_dir }}/netbox"
   changed_when: true
