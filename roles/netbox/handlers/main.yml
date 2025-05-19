@@ -1,8 +1,8 @@
-# roles/netbox/handlers/main.yml v1.1
+# roles/netbox/handlers/main.yml v1.2
 ---
 - name: restart postgresql
   ansible.builtin.systemd:
-    name: postgresql
+    name: postgresql-15
     state: restarted
 
 - name: restart nginx
