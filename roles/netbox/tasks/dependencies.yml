@@ -1,11 +1,12 @@
-# roles/netbox/tasks/dependencies.yml v1.1
+# roles/netbox/tasks/dependencies.yml v1.3 – angepasst für PostgreSQL 15 auf Rocky 9.5
 ---
+
 - name: Install dependencies
   ansible.builtin.dnf:
     name:
-      - python39
-      - python39-devel
-      - python39-pip
+      - python3
+      - python3-devel
+      - python3-pip
       - git
       - gcc
       - libxml2-devel
@@ -13,8 +14,8 @@
       - libffi-devel
       - openssl-devel
       - redhat-rpm-config
-      - postgresql-server
-      - postgresql-devel
+      - postgresql15-server
+      - postgresql15-devel
       - nginx
       - redis
     state: present
