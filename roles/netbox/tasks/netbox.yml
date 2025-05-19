@@ -1,4 +1,4 @@
-# roles/netbox/tasks/netbox.yml v4.5
+# roles/netbox/tasks/netbox.yml v4.6
 ---
 # Python 3.12 in Rocky Linux 9.5 installieren
 - name: Enable required repositories
@@ -17,59 +17,7 @@
       - python3.12-pip
     state: present
 
-# Konfigurieren und starten der PostgreSQL-Datenbank
-- name: Check if PostgreSQL is initialized
-  ansible.builtin.stat:
-    path: /var/lib/pgsql/data/postgresql.conf
-  register: postgresql_config
-
-- name: Initialize PostgreSQL if not already initialized
-  ansible.builtin.command: postgresql-setup --initdb
-  when: not postgresql_config.stat.exists
-  changed_when: true
-
-- name: Start and enable PostgreSQL
-  ansible.builtin.systemd:
-    name: postgresql
-    state: started
-    enabled: true
-
-# Verbesserte PostgreSQL-Konfiguration
-- name: Configure PostgreSQL pg_hba.conf for MD5 authentication
-  ansible.builtin.lineinfile:
-    path: /var/lib/pgsql/data/pg_hba.conf
-    regexp: '^(local\s+all\s+all\s+)peer'
-    line: 'local   all             all                                     md5'
-    state: present
-  notify: restart postgresql
-
-- name: Configure PostgreSQL pg_hba.conf for IPv4 connections
-  ansible.builtin.lineinfile:
-    path: /var/lib/pgsql/data/pg_hba.conf
-    regexp: '^(host\s+all\s+all\s+127.0.0.1/32\s+)ident'
-    line: 'host    all             all             127.0.0.1/32            md5'
-    state: present
-  notify: restart postgresql
-
-- name: Create PostgreSQL user
-  become: true
-  become_user: postgres
-  ansible.builtin.shell: |
-    psql -c "CREATE ROLE {{ netbox_db_user }} WITH LOGIN ENCRYPTED PASSWORD '{{ netbox_db_password }}';" || \
-    psql -c "ALTER USER {{ netbox_db_user }} WITH PASSWORD '{{ netbox_db_password }}';"
-  changed_when: true
-
-- name: Create PostgreSQL database
-  become: true
-  become_user: postgres
-  ansible.builtin.shell: |
-    psql -c "CREATE DATABASE {{ netbox_db_name }} WITH OWNER {{ netbox_db_user }};" || true
-  changed_when: true
-
-- name: Ensure PostgreSQL is restarted for authentication changes
-  ansible.builtin.systemd:
-    name: postgresql
-    state: restarted
+# Diese PostgreSQL-Konfigurationsblöcke wurden entfernt, da sie bereits in database.yml definiert sind
 
 - name: Create temporary directory for NetBox installation
   ansible.builtin.file:
@@ -162,7 +110,7 @@
   become: true
   become_user: "{{ netbox_user }}"
   ansible.builtin.shell: |
-    PGPASSWORD='{{ netbox_db_password }}' psql -h localhost -U {{ netbox_db_user }} -d {{ netbox_db_name }} -c "SELECT 1"
+    PGPASSWORD='{{ netbox_db_password }}' /usr/pgsql-15/bin/psql -h localhost -U {{ netbox_db_user }} -d {{ netbox_db_name }} -c "SELECT 1"
   register: psql_test
   changed_when: false
   failed_when: false
