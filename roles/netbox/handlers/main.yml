@@ -1,25 +1,25 @@
-# roles/netbox/handlers/main.yml v1.0
+# roles/netbox/handlers/main.yml v1.1
 ---
 - name: restart postgresql
-  systemd:
+  ansible.builtin.systemd:
     name: postgresql
     state: restarted
 
 - name: restart nginx
-  systemd:
+  ansible.builtin.systemd:
     name: nginx
     state: restarted
     
 - name: restart redis
-  systemd:
+  ansible.builtin.systemd:
     name: redis
     state: restarted
 
 - name: reload systemd
-  command: systemctl daemon-reload
+  ansible.builtin.command: systemctl daemon-reload
 
 - name: restart netbox services
-  systemd:
+  ansible.builtin.systemd:
     name: "{{ item }}"
     state: restarted
   with_items:
