@@ -1,10 +1,10 @@
-# roles/netbox/templates/netbox.service.j2 v1.0
+# roles/netbox/templates/netbox.service.j2 v1.1
 # {{ ansible_managed }}
 [Unit]
 Description=NetBox WSGI Service
 Documentation=https://docs.netbox.dev/
-After=network-online.target
-Wants=network-online.target postgresql.service redis.service
+After=network-online.target postgresql-15.service redis.service
+Wants=network-online.target postgresql-15.service redis.service
 
 [Service]
 Type=simple
