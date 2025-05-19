@@ -1,4 +1,4 @@
-# roles/netbox/tasks/database.yml v1.2 – angepasst für PostgreSQL 15 auf Rocky 9.5
+# roles/netbox/tasks/database.yml v1.3
 ---
 
 - name: Add internal PostgreSQL 15 repo
@@ -35,7 +35,7 @@
     regexp: '^host\s+{{ netbox_db_name }}\s+{{ netbox_db_user }}\s+127.0.0.1/32'
     line: "host    {{ netbox_db_name }}    {{ netbox_db_user }}    127.0.0.1/32    md5"
     state: present
-  notify: restart postgresql-15
+  notify: restart postgresql
 
 - name: Create NetBox user
   become: true
