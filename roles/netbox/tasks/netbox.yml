@@ -1,6 +1,6 @@
-# roles/netbox/tasks/netbox.yml v4.6
+# roles/netbox/tasks/netbox.yml v5.0 – Vereinfacht für PostgreSQL 15 AppStream
 ---
-# Python 3.12 in Rocky Linux 9.5 installieren
+
 - name: Enable required repositories
   ansible.builtin.shell: |
     dnf install -y dnf-plugins-core
@@ -17,7 +17,13 @@
       - python3.12-pip
     state: present
 
-# Diese PostgreSQL-Konfigurationsblöcke wurden entfernt, da sie bereits in database.yml definiert sind
+- name: Create NetBox directory
+  ansible.builtin.file:
+    path: "{{ netbox_dir }}"
+    state: directory
+    owner: "{{ netbox_user }}"
+    group: "{{ netbox_group }}"
+    mode: '0755'
 
 - name: Create temporary directory for NetBox installation
   ansible.builtin.file:
@@ -27,30 +33,29 @@
 
 - name: Download NetBox
   ansible.builtin.get_url:
-    url: "https://github.com/netbox-community/netbox/archive/refs/tags/v4.3.0.tar.gz"
-    dest: "/var/local/tmpdir/v4.3.0.tar.gz"
+    url: "https://github.com/netbox-community/netbox/archive/refs/tags/{{ netbox_version }}.tar.gz"
+    dest: "/var/local/tmpdir/{{ netbox_version }}.tar.gz"
   environment:
     http_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
     https_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
 
 - name: Extract NetBox archive
   ansible.builtin.unarchive:
-    src: "/var/local/tmpdir/v4.3.0.tar.gz"
+    src: "/var/local/tmpdir/{{ netbox_version }}.tar.gz"
     dest: "/var/local/tmpdir/"
     remote_src: true
 
 - name: Copy NetBox files to destination
-  ansible.builtin.shell: cp -r /var/local/tmpdir/netbox-4.3.0/* {{ netbox_dir }}/
+  ansible.builtin.shell: cp -r /var/local/tmpdir/netbox-{{ netbox_version | regex_replace('^v', '') }}/* {{ netbox_dir }}/
 
 - name: Clean up temporary files
   ansible.builtin.file:
     path: "/var/local/tmpdir/{{ item }}"
     state: absent
   with_items:
-    - "v4.3.0.tar.gz"
-    - "netbox-4.3.0"
+    - "{{ netbox_version }}.tar.gz"
+    - "netbox-{{ netbox_version | regex_replace('^v', '') }}"
 
-# Python 3.12 für virtualenv verwenden
 - name: Create Python virtual environment
   ansible.builtin.pip:
     name: virtualenv
@@ -83,7 +88,7 @@
     http_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
     https_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
 
-- name: Install NetBox requirements (with SSL verification disabled)
+- name: Install NetBox requirements
   ansible.builtin.command: "{{ netbox_venv }}/bin/pip install --trusted-host pypi.org --trusted-host files.pythonhosted.org -r {{ netbox_dir }}/requirements.txt"
   environment:
     http_proxy: "{{ lookup('env', 'http_proxy') | default('') }}"
@@ -106,11 +111,11 @@
     group: "{{ netbox_group }}"
     mode: '0644'
 
-- name: Test PostgreSQL connection with psql
+- name: Test PostgreSQL connection
   become: true
   become_user: "{{ netbox_user }}"
   ansible.builtin.shell: |
-    PGPASSWORD='{{ netbox_db_password }}' /usr/pgsql-15/bin/psql -h localhost -U {{ netbox_db_user }} -d {{ netbox_db_name }} -c "SELECT 1"
+    PGPASSWORD='{{ netbox_db_password }}' psql -h localhost -U {{ netbox_db_user }} -d {{ netbox_db_name }} -c "SELECT 1"
   register: psql_test
   changed_when: false
   failed_when: false
@@ -151,3 +156,4 @@
   args:
     chdir: "{{ netbox_dir }}/netbox"
   changed_when: true
+  

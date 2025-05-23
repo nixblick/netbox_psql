@@ -1,5 +1,9 @@
-# roles/netbox/tasks/dependencies.yml v1.3 – angepasst für PostgreSQL 15 auf Rocky 9.5
+# roles/netbox/tasks/dependencies.yml v1.4 – PostgreSQL 15 via AppStream
 ---
+
+- name: Enable PostgreSQL 15 module
+  ansible.builtin.command: dnf module enable postgresql:15 -y
+  changed_when: true
 
 - name: Install dependencies
   ansible.builtin.dnf:
@@ -14,8 +18,8 @@
       - libffi-devel
       - openssl-devel
       - redhat-rpm-config
-      - postgresql15-server
-      - postgresql15-devel
+      - postgresql-server
+      - postgresql-devel
       - nginx
       - redis
     state: present

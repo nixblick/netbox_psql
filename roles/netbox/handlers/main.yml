@@ -1,8 +1,8 @@
-# roles/netbox/handlers/main.yml v1.2
+# roles/netbox/handlers/main.yml v1.3 – PostgreSQL 15 via AppStream
 ---
 - name: restart postgresql
   ansible.builtin.systemd:
-    name: postgresql-15
+    name: postgresql
     state: restarted
 
 - name: restart nginx

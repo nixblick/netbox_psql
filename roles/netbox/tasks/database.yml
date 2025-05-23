@@ -1,37 +1,24 @@
-# roles/netbox/tasks/database.yml v1.3
+# roles/netbox/tasks/database.yml v2.0 – PostgreSQL 15 via AppStream
 ---
 
-- name: Add internal PostgreSQL 15 repo
-  ansible.builtin.copy:
-    src: files/pg15.repo
-    dest: /etc/yum.repos.d/pg15.repo
-    mode: '0644'
-
-- name: Install PostgreSQL 15 packages
-  ansible.builtin.dnf:
-    name:
-      - postgresql15-server
-      - postgresql15-devel
-    state: present
-
-- name: Check if PostgreSQL 15 is initialized
+- name: Check if PostgreSQL is initialized
   stat:
-    path: /var/lib/pgsql/15/data/postgresql.conf
-  register: postgresql15_config
+    path: /var/lib/pgsql/data/postgresql.conf
+  register: postgresql_config
 
-- name: Initialize PostgreSQL 15
-  command: /usr/pgsql-15/bin/postgresql-15-setup initdb
-  when: not postgresql15_config.stat.exists
+- name: Initialize PostgreSQL
+  command: postgresql-setup --initdb
+  when: not postgresql_config.stat.exists
 
-- name: Start and enable PostgreSQL 15
+- name: Start and enable PostgreSQL
   systemd:
-    name: postgresql-15
+    name: postgresql
     state: started
     enabled: yes
 
 - name: Configure pg_hba.conf for NetBox user
   lineinfile:
-    path: /var/lib/pgsql/15/data/pg_hba.conf
+    path: /var/lib/pgsql/data/pg_hba.conf
     regexp: '^host\s+{{ netbox_db_name }}\s+{{ netbox_db_user }}\s+127.0.0.1/32'
     line: "host    {{ netbox_db_name }}    {{ netbox_db_user }}    127.0.0.1/32    md5"
     state: present
@@ -41,7 +28,7 @@
   become: true
   become_user: postgres
   command: >
-    /usr/pgsql-15/bin/psql -c "CREATE ROLE {{ netbox_db_user }} WITH LOGIN ENCRYPTED PASSWORD '{{ netbox_db_password }}';"
+    psql -c "CREATE ROLE {{ netbox_db_user }} WITH LOGIN ENCRYPTED PASSWORD '{{ netbox_db_password }}';"
   register: create_user_result
   failed_when:
     - create_user_result.rc != 0
@@ -52,9 +39,21 @@
   become: true
   become_user: postgres
   command: >
-    /usr/pgsql-15/bin/psql -c "CREATE DATABASE {{ netbox_db_name }} WITH OWNER {{ netbox_db_user }};"
+    psql -c "CREATE DATABASE {{ netbox_db_name }} WITH OWNER {{ netbox_db_user }};"
   register: create_db_result
   failed_when:
     - create_db_result.rc != 0
     - "'already exists' not in create_db_result.stderr"
   changed_when: "'already exists' not in create_db_result.stderr"
+
+- name: Grant CREATE on schema public to netbox user
+  become: true
+  become_user: postgres
+  command: >
+    psql -d {{ netbox_db_name }} -c "GRANT CREATE ON SCHEMA public TO {{ netbox_db_user }};"
+  register: grant_result
+  failed_when:
+    - grant_result.rc != 0
+    - "'already exists' not in grant_result.stderr"
+  changed_when: "'already exists' not in grant_result.stderr"
+  
